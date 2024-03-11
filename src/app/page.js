@@ -59,7 +59,7 @@ const App = () => {
   <div className="flex mt-20 flex-1">
     <input
       type="text"
-      className="flex flex-1 justify-center px-5 py-3.5 rounded-xl bg-stone-100"
+      className="flex text-black flex-1 justify-center px-5 py-3.5 rounded-xl bg-stone-100"
       placeholder="Type your message..."
       value={userInput}
       onChange={handleInputChange}
