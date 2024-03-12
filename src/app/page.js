@@ -1,6 +1,6 @@
 'use client'
-import React, { useState } from "react";
-
+import React, { useState, useEffect } from "react";
+import { FaClock, FaCheckCircle } from 'react-icons/fa';
 
 const ChatBubble = ({ text, isUser }) => (
   <div className={`flex gap-5 justify-between self-end pr-2.5 mt-44 text-sm text-white whitespace-nowrap max-md:mt-10 ${isUser ? 'flex-row-reverse' : ''}`}>
@@ -9,20 +9,47 @@ const ChatBubble = ({ text, isUser }) => (
   </div>
 );
 
-const CalendarEvent = ({ icon, text, isActive }) => (
-  <div className={`flex gap-5 justify-between py-3.5 pr-3 pl-6 mt-3 w-full bg-black max-md:pl-5 ${isActive ? 'z-10' : ''}`}>
+const CalendarEvent = ({ slot_start, slot_end, isSlotBooked, slot_id, handleBookSlot }) => (
+  <div className={`flex gap-5 justify-between py-3.5 pr-3 pl-6 mt-3 w-full bg-black max-md:pl-5`}>
     <div className="flex flex-auto gap-4 py-px pr-9">
       <div className="flex justify-center items-center px-3 rounded-lg bg-stone-100 h-[49px] w-[49px]">
-        <img loading="lazy" src={icon} className={`${icon.includes('clock') ? 'aspect-[1.04] w-[25px]' : 'w-6 aspect-square'}`} alt={`${text} icon`} />
+        {isSlotBooked ? <FaCheckCircle className="w-6 h-6 text-green-500" /> : <FaClock className="w-6 h-6 text-blue-500" />}
       </div>
-      <div className="grow justify-center self-start pb-5 text-base font-medium leading-6 text-white whitespace-nowrap">{text}</div>
+      <div className="grow justify-center self-start pb-5 text-base font-medium leading-6 text-white whitespace-nowrap">{`${new Date(slot_start).toLocaleTimeString()} - ${new Date(slot_end).toLocaleTimeString()}`}</div>
     </div>
-    <img loading="lazy" src={isActive ? "https://cdn.builder.io/api/v1/image/assets/TEMP/0887915c04d96a122fcbe28c3ee8c0bdd5bb035b48bde007a8a17e863b8e91b6?apiKey=d1ee9f6275604677bd2583ecebeab853&" : "https://cdn.builder.io/api/v1/image/assets/TEMP/7a4fa50b6a17d3d5eff9f1e678cf9e936143d2b8c5dc20459e85305811647567?apiKey=d1ee9f6275604677bd2583ecebeab853&"} className={`shrink-0 my-auto ${isActive ? 'border-red-600 border-solid aspect-[3.7] border-[6px] stroke-[6px] stroke-red-600 w-[22px]' : 'w-6 aspect-[0.96]'}`} alt={isActive ? 'Active event indicator' : 'Inactive event indicator'} />
+    {isSlotBooked ? (
+      <div className="flex items-center">
+        <FaCheckCircle className="w-6 h-6 text-green-500" />
+      </div>
+    ) : (
+      <button className="flex items-center" onClick={() => handleBookSlot(slot_id)}>
+        Book Slot
+      </button>
+    )}
   </div>
 );
 
 const App = () => {
   const [userInput, setUserInput] = useState("");
+  const [appointments, setAppointments] = useState([]);
+
+  useEffect(() => {
+    // Fetch data from the API
+    fetchData();
+  }, []); // Empty dependency array to fetch data only once on component mount
+
+  const fetchData = () => {
+    fetch('https://us-central1-proven-gasket-416318.cloudfunctions.net/doctors/doctors/1/slot')
+      .then((response) => response.json())
+      .then((data) => {
+        console.log(data);
+        // Update state with fetched data
+        setAppointments(data);
+      })
+      .catch((error) => {
+        console.error("Error fetching appointments:", error);
+      });
+  };
 
   const handleInputChange = (event) => {
     setUserInput(event.target.value);
@@ -35,6 +62,76 @@ const App = () => {
     setUserInput("");
   };
 
+  const handleDeleteAppointments = () => {
+    // Show confirmation dialog
+    const confirmation = window.confirm("Are you sure you want to delete all appointments?");
+    if (confirmation) {
+      // Perform reset
+      fetch('https://us-central1-proven-gasket-416318.cloudfunctions.net/doctors/appointments/reset', {
+        method: 'POST',
+        headers: {
+          'Content-Length': '0'
+        }
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Failed to reset appointments');
+        }
+        // Handle successful reset, if needed
+        setAppointments([]); // Clear appointments state after reset
+      })
+      .catch(error => {
+        console.error('Error resetting appointments:', error);
+        // Handle reset error, if needed
+      })
+      .finally(() => {
+        fetchData(); // Fetch fresh data after resetting appointments
+      });
+    }
+  };
+
+  const handleBookSlot = (slotId) => {
+    // Show confirmation dialog
+    const confirmation = window.confirm("Are you sure you want to book this slot?");
+    if (confirmation) {
+      // Perform booking
+      fetch(`https://us-central1-proven-gasket-416318.cloudfunctions.net/doctors/doctors/1/slot/book/${slotId}`, {
+        method: 'POST',
+        headers: {
+          'Content-length': '0'
+        }
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Failed to book slot');
+        }
+        // Handle successful booking, if needed
+      })
+      .catch(error => {
+        console.error('Error booking slot:', error);
+        // Handle booking error, if needed
+      })
+      .finally(() => {
+        fetchData(); // Fetch fresh data after booking slot
+      });
+    }
+  };
+
+  const handleRefresh = () => {
+    fetchData(); // Fetch fresh data
+  };
+
+  // Render CalendarEvent components dynamically based on fetched appointments
+  const renderedAppointments = appointments.map((appointment, index) => (
+    <CalendarEvent
+      key={index}
+      slot_start={appointment.slot_start}
+      slot_end={appointment.slot_end}
+      isSlotBooked={appointment.isSlotBooked}
+      slot_id={appointment.slot_id}
+      handleBookSlot={handleBookSlot}
+    />
+  ));
 
   return (
     <div className="flex justify-center items-center px-16 py-20 bg-black max-md:px-5">
@@ -52,35 +149,6 @@ const App = () => {
                       <div className="justify-center self-stretch p-2.5 my-auto text-sm whitespace-nowrap bg-violet-200 rounded-xl text-zinc-800">Hi, there!</div>
                       <ChatBubble text="Hello chat bot" isUser />
                     </div>
-                    {/* <div className="flex flex-col justify-center items-end px-16 py-3 mt-32 bg-violet-200 rounded-xl max-md:px-5 max-md:mt-10 max-md:max-w-full">
-                    <div className="flex  self-end mt-4  font-bold  text-black max-md:mr-2.5">
-                    <div className="flex gap-3 self-end mt-4 text-base font-bold tracking-wide leading-6 text-black whitespace-nowrap max-md:mr-2.5"> */}
- <div> <div> <div>
-  <div className="flex mt-20 flex-1">
-    <input
-      type="text"
-      className="flex text-black flex-1 justify-center px-5 py-3.5 rounded-xl bg-stone-100"
-      placeholder="Type your message..."
-      value={userInput}
-      onChange={handleInputChange}
-    />
-    <button
-      className="flex justify-center items-center px-5 py-3 bg-green-500 rounded-xl"
-      onClick={handleSendMessage}
-    >
-      Send
-    </button>
-  </div>
-</div>
-        </div>
-      </div>
-      <df-messenger
-        intent="WELCOME"
-        chat-title="DoctorBot"
-        agent-id="b90ace8e-22fe-4608-b689-1d1825c69d10"
-        language-code="en"
-      ></df-messenger>
-    
                   </div>
                 </div>
               </div>
@@ -93,22 +161,16 @@ const App = () => {
                     <img loading="lazy" src="https://cdn.builder.io/api/v1/image/assets/TEMP/6484d55b6ba61b49a0f2f0d0d546b447e2b0c2ec5179b4fbdf291dd9b43c706b?apiKey=d1ee9f6275604677bd2583ecebeab853&" className="shrink-0 w-6 aspect-square" alt="Calendar icon" />
                   </div>
                 </header>
-                <CalendarEvent icon="https://cdn.builder.io/api/v1/image/assets/TEMP/7d75b4cae0a427f2e84342be3810c66a175d55b151aee3b3710fca447e7a96ee?apiKey=d1ee9f6275604677bd2583ecebeab853&" text="Tuesday, December 14" />
-                <CalendarEvent icon="https://cdn.builder.io/api/v1/image/assets/TEMP/d7a7cd3ca7397593a1b7c17aa0e91113b93d6c4525c701478a2798bbd103fc26?apiKey=d1ee9f6275604677bd2583ecebeab853&" text="Tuesday, December 14" />
-                <CalendarEvent icon="https://cdn.builder.io/api/v1/image/assets/TEMP/0c55f78643c709f5c98ba3eb298ed81d8229604c8e73a0a42a5a1f00e0f4e71a?apiKey=d1ee9f6275604677bd2583ecebeab853&" text="Wednesday, December 15" />
-                <CalendarEvent icon="https://cdn.builder.io/api/v1/image/assets/TEMP/71507ab0e32dadbe266d696374205a7fb07705ac6787269185a4f5a522c946a8?apiKey=d1ee9f6275604677bd2583ecebeab853&" text="Thursday, December 16" />
-                <CalendarEvent icon="https://cdn.builder.io/api/v1/image/assets/TEMP/b4269bfcb8e25dc0054294269bdf9c9cdcd94a7a768af96af43640b62a7f9904?apiKey=d1ee9f6275604677bd2583ecebeab853&" text="Friday, December 17" />
-                <CalendarEvent icon="https://cdn.builder.io/api/v1/image/assets/TEMP/e42e3e9f2a067149c5b83b4ea282482046ae2bad5b305ae0f1e288728b5dbafe?apiKey=d1ee9f6275604677bd2583ecebeab853&" text="Friday, December 17" isActive />
+                {renderedAppointments} 
               </div>
             </div>
           </div>
         </div>
         <div className="flex gap-3 self-end mt-4 text-base font-bold tracking-wide leading-6 text-black whitespace-nowrap max-md:mr-2.5">
-          <button className="flex flex-col flex-1 justify-center px-5 py-3.5 rounded-xl bg-stone-100">Delete all appointments</button>
-          <button className="flex flex-col justify-center self-start px-5 py-3 bg-green-500 rounded-xl basis-0">Refresh</button>
+          <button className="flex flex-col flex-1 justify-center px-5 py-3.5 rounded-xl bg-stone-100" onClick={handleDeleteAppointments}>Delete all appointments</button>
+          <button className="flex flex-col justify-center self-start px-5 py-3 bg-green-500 rounded-xl basis-0" onClick={handleRefresh}>Refresh</button>
         </div>
       </div>
-      
     </div>
   );
 };
