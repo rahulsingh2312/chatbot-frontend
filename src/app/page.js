@@ -120,6 +120,7 @@ const App = () => {
 
   const handleRefresh = () => {
     fetchData(); // Fetch fresh data
+    window.location.reload(); 
   };
 
   // Render CalendarEvent components dynamically based on fetched appointments
